@@ -106,79 +106,88 @@ const App = () => {
   }, [rendition])                                                           // rendition 변경 시 다시 실행
 
   return (
-    <div style={{ position: 'relative', height: '100vh' }}>
-      <div style={{ position: 'absolute', top: '17px', right: '20px', zIndex: 2, display: 'flex', alignItems: 'center' }}>
-        <FaBookmark 
-          onClick={toggleBookmarks}                                         // 북마크 창 토글
-          style={{ cursor: 'pointer', fontSize: '20px' }} 
+    <div style={{ display: 'flex', height: '100vh' }}>
+      {/* 왼쪽: EPUB Reader */}
+      <div style={{ flex: 1, position: 'relative' }}>
+        <div style={{ position: 'absolute', top: '17px', right: '20px', zIndex: 2, display: 'flex', alignItems: 'center' }}>
+          <FaBookmark 
+            onClick={toggleBookmarks}
+            style={{ cursor: 'pointer', fontSize: '20px' }} 
+          />
+        </div>
+        {showBookmarks && (
+          <div style={{ position: 'absolute', top: '40px', right: '20px', maxHeight: '300px', width: '250px', overflowY: 'auto', background: 'white', border: '1px solid #ccc', padding: '10px', zIndex: 2 }}>
+            <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                {HIGHLIGHT_COLORS.map(color => (
+                  <FaPalette
+                    key={color}
+                    onClick={() => changeHighlightColor(color)}
+                    style={{ cursor: 'pointer', marginRight: '5px', color: color }}
+                  />
+                ))}
+              </div>
+            </div>
+            {selections.map((selection, index) => (
+              <div key={index} style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
+                <FaBookmark style={{ marginRight: '5px', color: selection.color }} />
+                <span 
+                  onClick={() => rendition.display(selection.cfiRange)}
+                  style={{ cursor: 'pointer', flex: 1 }}
+                >
+                  {selection.text.slice(0, 30)}...
+                </span>
+                <FaTrash 
+                  onClick={() => removeHighlight(selection.cfiRange)}
+                  style={{ cursor: 'pointer', marginLeft: '5px' }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 2 }}>
+          {page}                                                               
+        </div>
+        <ReactReader
+          url="https://react-reader.metabits.no/files/alice.epub"
+          locationChanged={locationChanged}
+          getRendition={(rendition) => {
+            setRendition(rendition)
+          }}
+          tocChanged={toc => {
+            tocRef.current = toc
+            if (readerRef.current) {
+              readerRef.current.tocChanged = toc
+            }
+          }}
+          epubInitOptions={{
+            openAs: 'epub'
+          }}
+          getBook={(bookInstance) => {
+            setBook(bookInstance)
+            bookInstance.locations.generate(1024).then(() => {
+              if (location) {
+                updatePageInfo(location)
+              }
+            })
+          }}
+          location={location}
+          epubOptions={{
+            flow: 'paginated',
+            width: '100%',
+            height: '100%',
+            spread: 'always'
+          }}
+          styles={ownStyles}
+          ref={readerRef}
         />
       </div>
-      {showBookmarks && (                                                    // 북마크 목록 표시 여부
-        <div style={{ position: 'absolute', top: '40px', right: '20px', maxHeight: '300px', width: '250px', overflowY: 'auto', background: 'white', border: '1px solid #ccc', padding: '10px', zIndex: 2 }}>
-          <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between' }}>
-            <div>
-              {HIGHLIGHT_COLORS.map(color => (
-                <FaPalette
-                  key={color}
-                  onClick={() => changeHighlightColor(color)}                // 하이라이트 색상 변경
-                  style={{ cursor: 'pointer', marginRight: '5px', color: color }}
-                />
-              ))}
-            </div>
-          </div>
-          {selections.map((selection, index) => (
-            <div key={index} style={{ marginBottom: '10px', display: 'flex', alignItems: 'center' }}>
-              <FaBookmark style={{ marginRight: '5px', color: selection.color }} />
-              <span 
-                onClick={() => rendition.display(selection.cfiRange)}       // 해당 하이라이트로 이동
-                style={{ cursor: 'pointer', flex: 1 }}
-              >
-                {selection.text.slice(0, 30)}...
-              </span>
-              <FaTrash 
-                onClick={() => removeHighlight(selection.cfiRange)}         // 하이라이트 제거 버튼
-                style={{ cursor: 'pointer', marginLeft: '5px' }}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-      <div style={{ position: 'absolute', bottom: '10px', right: '10px', zIndex: 2 }}>
-        {page}                                                               
+
+      {/* 오른쪽: Knowledge Graph */}
+      <div style={{ flex: 1, position: 'relative', borderLeft: '1px solid #ccc' }}>
+        {/* <div ref={graphRef}>
+        </div> */}
       </div>
-      <ReactReader
-        url="https://react-reader.metabits.no/files/alice.epub"               // Epub 파일 URL
-        locationChanged={locationChanged}                                    // 페이지 위치 변경 핸들러
-        getRendition={(rendition) => {                                       // 렌더링 객체 설정 핸들러
-          setRendition(rendition)
-        }}
-        tocChanged={toc => {                                                 // 목차 변경 핸들러
-          tocRef.current = toc
-          if (readerRef.current) {
-            readerRef.current.tocChanged = toc
-          }
-        }}
-        epubInitOptions={{
-          openAs: 'epub'
-        }}
-        getBook={(bookInstance) => {                                         // 책 객체 설정 핸들러
-          setBook(bookInstance)
-          bookInstance.locations.generate(1024).then(() => {                 // 책의 위치 정보를 생성 (2번 코드에서 추가된 부분)
-            if (location) {
-              updatePageInfo(location)                                       // 페이지 정보 업데이트
-            }
-          })
-        }}
-        location={location}
-        epubOptions={{
-          flow: 'paginated',
-          width: '100%',
-          height: '100%',
-          spread: 'always'
-        }}
-        styles={ownStyles}
-        ref={readerRef}
-      />
     </div>
   )
 }
