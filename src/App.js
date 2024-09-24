@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { ReactReader, ReactReaderStyle } from 'react-reader'
 import { FaBookmark, FaTrash, FaPalette } from 'react-icons/fa'
+import { fetchData } from './neo4jService';
+import GraphViewer from './GraphViewer';
 
 // ReactReader의 기본 스타일을 복사하고, 필요한 부분을 오버라이드한다.
 const ownStyles = {
@@ -15,100 +17,101 @@ const HIGHLIGHT_COLORS = ['yellow', 'lightgreen', 'lightblue', 'pink']
 
 const App = () => {
   // 상태 및 참조 변수 선언
-  const [location, setLocation] = useState(null)                            // 현재 페이지 위치
-  const [rendition, setRendition] = useState(null)                          // Epub 렌더링 객체로, 하이라이트를 추가하거나 제거할 때 사용
-  const [page, setPage] = useState('')                                      // 현재 페이지 정보
-  const [selections, setSelections] = useState([])                          // 하이라이트 목록
-  const [showBookmarks, setShowBookmarks] = useState(false)                 // 하이라이트 목록을 보여줄지 여부
-  const [currentColor, setCurrentColor] = useState(HIGHLIGHT_COLORS[0])     // 현재 선택된 하이라이트 색상
-  const [sortOrder, setSortOrder] = useState('asc')                         // 하이라이트 목록 정렬 순서
-  const tocRef = useRef(null)                                               // 목차 정보를 저장할 참조 변수
-  const readerRef = useRef(null)                                            // ReactReader 컴포넌트의 참조 변수
-  const [book, setBook] = useState(null)                                    // Epub 책 객체  
+  const [location, setLocation] = useState(null)
+  const [rendition, setRendition] = useState(null)
+  const [page, setPage] = useState('')
+  const [selections, setSelections] = useState([])
+  const [showBookmarks, setShowBookmarks] = useState(false)
+  const [currentColor, setCurrentColor] = useState(HIGHLIGHT_COLORS[0])
+  const [nodes, setNodes] = useState([]);
+  const [links, setLinks] = useState([]);
+  const tocRef = useRef(null)
+  const readerRef = useRef(null)
+  const [book, setBook] = useState(null)
 
-  // 페이지 정보 업데이트 함수
   const updatePageInfo = (epubcifi) => {
-    if (book && book.locations && book.locations.length() > 0) {          // book 객체와 목차 정보가 있는지 확인
-      const currentPage = book.locations.locationFromCfi(epubcifi) + 1    // 현재 페이지 번호
-      const totalPages = book.locations.total                             // 전체 페이지 수
+    if (book && book.locations && book.locations.length() > 0) {
+      const currentPage = book.locations.locationFromCfi(epubcifi) + 1
+      const totalPages = book.locations.total
       setPage(`Page ${currentPage} of ${totalPages}`)
     }
   }
 
-  // 사용자가 페이지를 이동할 때 호출되는 함수
-  const locationChanged = (epubcifi) => {                                 // epubcifi: Epub.js의 CFI 객체로 EPUB 파일의 위치를 나타냄.
-    setLocation(epubcifi)                                                 // 현재 페이지 위치를 업데이트
-    updatePageInfo(epubcifi)                                              // 페이지 정보 업데이트
+  const locationChanged = (epubcifi) => {
+    setLocation(epubcifi)
+    updatePageInfo(epubcifi)
   }
 
-  // 하이라이트 제거 함수
   const removeHighlight = (cfiRange) => {
-    setSelections(prevSelections => prevSelections.filter(s => s.cfiRange !== cfiRange))  // 하이라이트 목록에서 제거
+    setSelections(prevSelections => prevSelections.filter(s => s.cfiRange !== cfiRange))
     if (rendition) {
-      rendition.annotations.remove(cfiRange, 'highlight')                   // 하이라이트를 제거하는 메서드. cfiRange: 제거할 하이라이트의 위치 범위, 'highlight'는 하이라이트 타입
+      rendition.annotations.remove(cfiRange, 'highlight')
     }
   }
 
-  // 북마크 창의 표시 여부를 토글하는 함수
   const toggleBookmarks = () => setShowBookmarks(!showBookmarks)
 
-  // 하이라이트 색상 변경 함수
   const changeHighlightColor = (color) => {
     setCurrentColor(color)
   }
 
-  // useEffect 훅을 사용하여 이벤트 핸들러를 등록 및 해제
   useEffect(() => {
     if (rendition) {
-      const handleSelected = (cfiRange, contents) => {                      // 텍스트 선택 시 호출되는 함수
-        const range = contents.range(cfiRange)                              // 선택한 텍스트의 범위
-        const text = range.toString()                                       // 선택한 텍스트의 내용
-        const existingSelection = selections.find(s => s.cfiRange === cfiRange) // 이미 선택한 텍스트인지 확인
+      const handleSelected = (cfiRange, contents) => {
+        const range = contents.range(cfiRange)
+        const text = range.toString()
+        const existingSelection = selections.find(s => s.cfiRange === cfiRange)
         if (!existingSelection) {
-          const newSelection = { cfiRange, text, color: currentColor }          // 새로운 하이라이트 정보 생성
-          setSelections(prevSelections => [...prevSelections, newSelection])    // 하이라이트 목록에 추가
-          rendition.annotations.highlight(cfiRange, {}, (e) => {                // 하이라이트 추가 메서드
+          const newSelection = { cfiRange, text, color: currentColor }
+          setSelections(prevSelections => [...prevSelections, newSelection])
+          rendition.annotations.highlight(cfiRange, {}, (e) => {
             console.log('Annotation clicked', e)
           }, '', { fill: currentColor })
 
-          // 선택 영역 해제
-          const selection = contents.window.getSelection()                    // 선택된 텍스트 해제
+          const selection = contents.window.getSelection()
           if (selection) {
             selection.removeAllRanges()
           }
         }
       }
 
-      rendition.on('selected', handleSelected)                               // 하이라이트 선택 이벤트 리스너 등록
+      rendition.on('selected', handleSelected)
 
-      // cleanup 함수에서 이벤트 핸들러 해제
       return () => {
-        rendition.off('selected', handleSelected)                            // 이벤트 리스너 해제
+        rendition.off('selected', handleSelected)
       }
     }
-  }, [rendition, currentColor, selections])                                 // rendition, currentColor, selections 변경 시 다시 실행
+  }, [rendition, currentColor, selections])
 
-  // useEffect 훅을 사용하여 테마 설정
   useEffect(() => {
     if (rendition) {
       rendition.themes.default({
         '::selection': {
-          'background': 'rgba(255,255,0, 0.3)'                              // 선택한 텍스트의 배경 색상 설정
+          'background': 'rgba(255,255,0, 0.3)'
         },
         'body': {
-          'font-family': 'inherit !important',                              // 본문 글꼴 설정
+          'font-family': 'inherit !important',
           'font-size': 'inherit !important',
           'line-height': 'inherit !important'
         }
       })
-      rendition.themes.select('default')                                    // 테마 선택
+      rendition.themes.select('default')
     }
-  }, [rendition])                                                           // rendition 변경 시 다시 실행
+
+    async function getData() {
+      const data = await fetchData();
+      if (data) {
+        setNodes(data.nodes || []);
+        setLinks(data.links || []);
+      }
+    }
+    getData();
+  }, [rendition])
 
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
       {/* 왼쪽: EPUB Reader */}
-      <div style={{ flex: 1, position: 'relative' }}>
+      <div style={{ flex: '0 0 50%', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '17px', right: '20px', zIndex: 2, display: 'flex', alignItems: 'center' }}>
           <FaBookmark 
             onClick={toggleBookmarks}
@@ -184,9 +187,8 @@ const App = () => {
       </div>
 
       {/* 오른쪽: Knowledge Graph */}
-      <div style={{ flex: 1, position: 'relative', borderLeft: '1px solid #ccc' }}>
-        {/* <div ref={graphRef}>
-        </div> */}
+      <div style={{ flex: '0 0 50%', position: 'relative', borderLeft: '1px solid #ccc' }}>
+        <GraphViewer nodes={nodes} links={links} />
       </div>
     </div>
   )
