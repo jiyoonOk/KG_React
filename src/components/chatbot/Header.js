@@ -7,11 +7,10 @@ const HeaderContainer = styled.div`
     rgba(157, 92, 255, 1) 0%,
     rgba(92, 130, 255, 1) 100%
   );
-  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.4rem;
+  padding: 1rem;
 
   .ri-close-line,
   .ri-arrow-left-s-line {
