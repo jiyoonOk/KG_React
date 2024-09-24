@@ -2,9 +2,16 @@ import React, { useState, useRef, useEffect } from 'react'
 import { ReactReader, ReactReaderStyle } from 'react-reader'
 import { FaBookmark, FaTrash, FaPalette } from 'react-icons/fa'
 import { fetchData } from './neo4jService';
-import GraphViewer from './GraphViewer';
+import GraphViewer from './components/GraphViewer.js';
+import Chatbot from "react-chatbot-kit";
+import setting from "./components/chatbot/setting.js";
+import MessageParser from "./components/chatbot/MessageParser.js";
+import ActionProvider from "./components/chatbot/ActionProvider.js";
 
-// ReactReader의 기본 스타일을 복사하고, 필요한 부분을 오버라이드한다.
+import "react-chatbot-kit/build/main.css";
+import "./styles/chatbot.css";
+import "remixicon/fonts/remixicon.css";
+
 const ownStyles = {
   ...ReactReaderStyle,
   arrow: {
@@ -16,7 +23,6 @@ const ownStyles = {
 const HIGHLIGHT_COLORS = ['yellow', 'lightgreen', 'lightblue', 'pink']
 
 const App = () => {
-  // 상태 및 참조 변수 선언
   const [location, setLocation] = useState(null)
   const [rendition, setRendition] = useState(null)
   const [page, setPage] = useState('')
@@ -111,7 +117,7 @@ const App = () => {
   return (
     <div style={{ display: 'flex', height: '100vh' }}>
       {/* 왼쪽: EPUB Reader */}
-      <div style={{ flex: '0 0 50%', position: 'relative' }}>
+      <div style={{ flex: '0 0 50%', position: 'relative', height: '100%', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '17px', right: '20px', zIndex: 2, display: 'flex', alignItems: 'center' }}>
           <FaBookmark 
             onClick={toggleBookmarks}
@@ -187,8 +193,17 @@ const App = () => {
       </div>
 
       {/* 오른쪽: Knowledge Graph */}
-      <div style={{ flex: '0 0 50%', position: 'relative', borderLeft: '1px solid #ccc' }}>
+      <div style={{ flex: '0 0 50%', position: 'relative', height: '100%', overflow: 'hidden' }}>
         <GraphViewer nodes={nodes} links={links} />
+      </div>
+
+      {/* 최상단에 챗봇 */}
+      <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 9999 }}>
+        <Chatbot
+          config={setting}
+          messageParser={MessageParser}
+          actionProvider={ActionProvider} 
+        />
       </div>
     </div>
   )
