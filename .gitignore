@@ -21,3 +21,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Ignore configuration files with sensitive information
+config.js
+src/parquet/.env
+src/parquet/output
